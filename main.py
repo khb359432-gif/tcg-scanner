@@ -98,6 +98,8 @@ html_content = """
         const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
         const ws = new WebSocket(protocol + location.host + '/ws/scan');
 
+        let safetyTimeout;
+
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; })
             .catch(err => {
@@ -118,14 +120,25 @@ html_content = """
                 
                 const imageData = canvas.toDataURL('image/jpeg', 0.8);
                 ws.send(imageData);
+
+                // 서버 응답이 10초 이상 없으면 강제로 버튼을 풀어주는 안전장치
+                safetyTimeout = setTimeout(() => {
+                    resetUI();
+                    resultBox.innerHTML = `<h3 style="color: #e74c3c;">시간 초과</h3><p>서버 응답이 너무 늦습니다. 다시 시도해주세요.</p>`;
+                }, 10000);
             }
         });
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        function resetUI() {
+            clearTimeout(safetyTimeout);
             videoContainer.classList.remove('scanning');
             captureBtn.disabled = false;
             captureBtn.innerText = "📸 카드 촬영 및 텍스트 인식";
+        }
+
+        ws.onmessage = (event) => {
+            resetUI();
+            const data = JSON.parse(event.data);
             
             if(data.status === "success") {
                 resultBox.innerHTML = `
@@ -153,7 +166,6 @@ async def get():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
-    # 스톰에메랄다 주요 카드 데이터베이스 (카드 번호 매핑)
     storm_emeralda_cards = {
         "110": {"name": "메가레쿠쟈 ex (MUR)", "query": "Mega Rayquaza ex", "fallback_price": "$185.00"},
         "108": {"name": "라이코 ex (SAR)", "query": "Raikou ex", "fallback_price": "$65.50"},
@@ -165,62 +177,64 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             
-            # Base64 이미지를 OpenCV 배열로 변환
-            encoded_data = data.split(',')[1]
-            nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
-            detected_card = None
-            matched_key = None
-            
-            if img is not None:
-                # OCR 정확도를 높이기 위한 전처리 (그레이스케일 + 크기 확대 + 이진화)
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                gray = cv2.resize(gray, (0, 0), fx=2, fy=2)
-                _, thresh = cv2.threshold(gray, 140, 255, cv2.THRESH_BINARY)
+            try:
+                encoded_data = data.split(',')[1]
+                nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+                img = cv2.imdecode(nparr, np.IMREAD_COLOR)
                 
-                # Tesseract OCR로 이미지 내 텍스트 추출
-                extracted_text = pytesseract.image_to_string(thresh, config='--psm 11')
+                detected_card = None
+                matched_key = None
                 
-                # 추출된 텍스트 안에서 카드 번호(110, 108 등) 찾기
-                for key, card_info in storm_emeralda_cards.items():
-                    if key in extracted_text:
-                        detected_card = card_info
-                        matched_key = key
-                        break
-            
-            if detected_card:
-                market_price = None
-                # 외부 TCG API 조회 시도
-                async with httpx.AsyncClient() as client:
-                    try:
-                        api_url = f"https://api.pokemontcg.io/v2/cards?q=name:\"{detected_card['query']}\""
-                        headers = {"User-Agent": "Mozilla/5.0"}
-                        response = await client.get(api_url, headers=headers, timeout=3.0)
-                        if response.status_code == 200:
-                            api_data = response.json()
-                            if api_data.get("data"):
-                                price = api_data["data"][0].get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
-                                if price:
-                                    market_price = f"${price}"
-                    except Exception:
-                        pass
-                
-                if not market_price:
-                    market_price = detected_card["fallback_price"]
+                if img is not None:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    gray = cv2.resize(gray, (0, 0), fx=1.5, fy=1.5) # 부하를 줄이기 위해 배율 조정
+                    _, thresh = cv2.threshold(gray, 140, 255, cv2.THRESH_BINARY)
                     
-                result = {
-                    "status": "success",
-                    "matched_key": matched_key,
-                    "name": detected_card["name"],
-                    "set_code": "스톰에메랄다 (M6)",
-                    "market_price": market_price
-                }
-            else:
-                # 번호를 찾지 못한 경우
+                    # OCR 실행
+                    extracted_text = pytesseract.image_to_string(thresh, config='--psm 11')
+                    
+                    for key, card_info in storm_emeralda_cards.items():
+                        if key in extracted_text:
+                            detected_card = card_info
+                            matched_key = key
+                            break
+                
+                if detected_card:
+                    market_price = None
+                    async with httpx.AsyncClient() as client:
+                        try:
+                            api_url = f"https://api.pokemontcg.io/v2/cards?q=name:\"{detected_card['query']}\""
+                            headers = {"User-Agent": "Mozilla/5.0"}
+                            response = await client.get(api_url, headers=headers, timeout=3.0)
+                            if response.status_code == 200:
+                                api_data = response.json()
+                                if api_data.get("data"):
+                                    price = api_data["data"][0].get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
+                                    if price:
+                                        market_price = f"${price}"
+                        except Exception:
+                            pass
+                    
+                    if not market_price:
+                        market_price = detected_card["fallback_price"]
+                        
+                    result = {
+                        "status": "success",
+                        "matched_key": matched_key,
+                        "name": detected_card["name"],
+                        "set_code": "스톰에메랄다 (M6)",
+                        "market_price": market_price
+                    }
+                else:
+                    result = {
+                        "status": "fail",
+                        "message": "카드 번호(110, 108 등)를 읽지 못했습니다. 카드를 더 선명하게 비추고 촬영해주세요."
+                    }
+            except Exception as e:
+                # 내부 에러 발생 시 멈추지 않고 에러 메시지 전송
                 result = {
                     "status": "fail",
-                    "message": "카드 번호(110, 108 등)를 읽지 못했습니다. 카드를 더 가까이 대고 촬영해주세요."
+                    "message": f"처리 중 오류가 발생했습니다: {str(e)}"
                 }
                         
             await websocket.send_text(json.dumps(result))
