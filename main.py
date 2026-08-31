@@ -121,7 +121,6 @@ html_content = """
                 const imageData = canvas.toDataURL('image/jpeg', 0.8);
                 ws.send(imageData);
 
-                // 서버 응답이 10초 이상 없으면 강제로 버튼을 풀어주는 안전장치
                 safetyTimeout = setTimeout(() => {
                     resetUI();
                     resultBox.innerHTML = `<h3 style="color: #e74c3c;">시간 초과</h3><p>서버 응답이 너무 늦습니다. 다시 시도해주세요.</p>`;
@@ -180,17 +179,18 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 encoded_data = data.split(',')[1]
                 nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
-                img = cv2.imdecode(nparr, np.IMREAD_COLOR)
+                
+                # 오류 수정 부분: np.IMREAD_COLOR -> cv2.IMREAD_COLOR
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
                 detected_card = None
                 matched_key = None
                 
                 if img is not None:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    gray = cv2.resize(gray, (0, 0), fx=1.5, fy=1.5) # 부하를 줄이기 위해 배율 조정
+                    gray = cv2.resize(gray, (0, 0), fx=1.5, fy=1.5)
                     _, thresh = cv2.threshold(gray, 140, 255, cv2.THRESH_BINARY)
                     
-                    # OCR 실행
                     extracted_text = pytesseract.image_to_string(thresh, config='--psm 11')
                     
                     for key, card_info in storm_emeralda_cards.items():
@@ -231,7 +231,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         "message": "카드 번호(110, 108 등)를 읽지 못했습니다. 카드를 더 선명하게 비추고 촬영해주세요."
                     }
             except Exception as e:
-                # 내부 에러 발생 시 멈추지 않고 에러 메시지 전송
                 result = {
                     "status": "fail",
                     "message": f"처리 중 오류가 발생했습니다: {str(e)}"
