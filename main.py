@@ -5,7 +5,6 @@ from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
-# 서버 시작 시 JSON 파일 로드 함수
 def load_card_database():
     try:
         with open("cards.json", "r", encoding="utf-8") as f:
@@ -17,7 +16,7 @@ html_content = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>포켓몬 TCG 고가 카드 시세 조회</title>
+    <title>포켓몬 TCG 카드 시세 & 이미지 조회</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 10px; background: #f0f0f0; }
@@ -50,11 +49,21 @@ html_content = """
             margin-bottom: 15px;
         }
 
-        #resultBox { margin-top: 15px; padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; text-align: left;}
+        #resultBox { margin-top: 15px; padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; text-align: center;}
         h1 { font-size: 1.4rem; color: #333; }
-        .price { font-size: 1.2rem; font-weight: bold; color: #16a085; margin-top: 5px; }
-        .card-name { font-size: 1.2rem; font-weight: bold; color: #2c3e50; }
+        .price { font-size: 1.2rem; font-weight: bold; color: #16a085; margin-top: 10px; }
+        .card-name { font-size: 1.2rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
         
+        /* 카드 이미지 스타일 */
+        .card-img {
+            width: 100%;
+            max-width: 220px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin: 10px auto;
+            display: block;
+        }
+
         #checkBtn { 
             margin-top: 5px; 
             padding: 15px; 
@@ -73,7 +82,7 @@ html_content = """
     </style>
 </head>
 <body>
-    <h1>포켓몬 TCG 고가 카드 시세</h1>
+    <h1>포켓몬 TCG 시세 & 일러스트 스캐너</h1>
     
     <div class="video-container">
         <video id="video" autoplay playsinline></video>
@@ -83,15 +92,15 @@ html_content = """
         <label for="setSelect">확장팩 선택:</label>
         <select id="setSelect" onchange="updateCardList()"></select>
 
-        <label for="cardSelect">카드 선택 (1만원 이상):</label>
+        <label for="cardSelect">카드 선택:</label>
         <select id="cardSelect"></select>
     </div>
 
-    <button id="checkBtn">💰 실시간 시세 확인하기</button>
+    <button id="checkBtn">💰 시세 및 이미지 확인하기</button>
     
     <div id="resultBox">
         <h3 style="margin:0 0 5px 0; color:#555;">조회 결과</h3>
-        <p style="margin:0; color:#888;">카드를 선택하고 시세 확인 버튼을 눌러주세요.</p>
+        <p style="margin:0; color:#888;">카드를 선택하고 버튼을 눌러주세요.</p>
     </div>
 
     <script>
@@ -103,7 +112,6 @@ html_content = """
 
         let dbData = {};
 
-        // 서버에서 동적으로 데이터베이스 로드
         async function initDatabase() {
             try {
                 const response = await fetch('/api/cards');
@@ -145,7 +153,7 @@ html_content = """
             const setKey = setSelect.value;
             const cardIdx = cardSelect.value;
 
-            resultBox.innerHTML = "<h3>⏳ 시세 조회 중...</h3>";
+            resultBox.innerHTML = "<h3>⏳ 카드 정보를 불러오는 중...</h3>";
             checkBtn.disabled = true;
 
             ws.send(JSON.stringify({
@@ -160,11 +168,12 @@ html_content = """
             if(data.status === "success") {
                 resultBox.innerHTML = `
                     <div class="card-name">${data.name}</div>
-                    <p style="margin: 5px 0; color:#666;">세트: ${data.set_name} (${data.card_id})</p>
-                    <div class="price">참고 시세: ${data.market_price}</div>
+                    <img src="${data.image_url}" class="card-img" alt="포켓몬 카드 이미지">
+                    <p style="margin: 5px 0; color:#666; font-size:0.9rem;">세트: ${data.set_name} (${data.card_id})</p>
+                    <div class="price">시세 정보: ${data.market_price}</div>
                 `;
             } else {
-                resultBox.innerHTML = `<h3 style="color:#e74c3c;">조회 실패</h3><p>정보를 불러오지 못했습니다.</p>`;
+                resultBox.innerHTML = `<h3 style="color:#e74c3c;">조회 실패</h3><p>이미지를 불러오지 못했습니다.</p>`;
             }
         };
 
@@ -180,7 +189,6 @@ html_content = """
 async def get():
     return HTMLResponse(html_content)
 
-# 프론트엔드에 JSON 데이터를 전달하는 API 엔드포인트
 @app.get("/api/cards")
 async def get_cards():
     return load_card_database()
@@ -202,17 +210,22 @@ async def websocket_endpoint(websocket: WebSocket):
             card_info = set_info["cards"][card_idx]
             
             market_price = None
+            image_url = "https://images.pokemontcg.io/base1/4.png" # 기본 대체 이미지
+            
             async with httpx.AsyncClient() as client:
                 try:
                     api_url = f"https://api.pokemontcg.io/v2/cards?q=name:\"{card_info['query']}\""
                     headers = {"User-Agent": "Mozilla/5.0"}
-                    response = await client.get(api_url, headers=headers, timeout=2.5)
+                    response = await client.get(api_url, headers=headers, timeout=3.0)
                     if response.status_code == 200:
                         api_data = response.json()
                         if api_data.get("data"):
-                            price = api_data["data"][0].get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
+                            card_data = api_data["data"][0]
+                            # 고화질 이미지 URL 추출
+                            image_url = card_data.get("images", {}).get("large", image_url)
+                            
+                            price = card_data.get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
                             if price:
-                                # 달러를 대략적인 원화 형태로 보기 좋게 표기하거나 기본 가격 활용
                                 market_price = f"${price} (기준가: {card_info['fallback_price']})"
                 except Exception:
                     pass
@@ -225,6 +238,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "set_name": set_info["name"],
                 "card_id": card_info["id"],
                 "name": card_info["name"],
+                "image_url": image_url,
                 "market_price": market_price
             }
                         
