@@ -1,0 +1,53 @@
+{
+    "storm_emeralda": {
+        "name": "스톰에메랄다",
+        "cards": [
+            {"id": "m6-110", "name": "메가레쿠쟈 ex (MUR)", "query": "Mega Rayquaza ex", "fallback_price": "220,000원"},
+            {"id": "m6-108", "name": "라이코 ex (SAR)", "query": "Raikou ex", "fallback_price": "75,000원"},
+            {"id": "m6-109", "name": "메가골루그 ex (SAR)", "query": "Mega Golurk ex", "fallback_price": "45,000원"},
+            {"id": "m6-102", "name": "피아나의 신뢰 (SAR)", "query": "Zinnia's Resolve", "fallback_price": "110,000원"}
+        ]
+    },
+    "abyss_eye": {
+        "name": "어비스아이",
+        "cards": [
+            {"id": "ab-095", "name": "메가가이오카 ex (MUR)", "query": "Mega Kyogre ex", "fallback_price": "190,000원"},
+            {"id": "ab-091", "name": "주니카 (SAR)", "query": "Special Illustration Rare", "fallback_price": "85,000원"},
+            {"id": "ab-082", "name": "단델의 위엄 (SR)", "query": "Trainer SR", "fallback_price": "18,000원"}
+        ]
+    },
+    "ninja_spinner": {
+        "name": "닌자스피너",
+        "cards": [
+            {"id": "ns-088", "name": "개굴닌자 ex (SAR)", "query": "Greninja ex", "fallback_price": "140,000원"},
+            {"id": "ns-082", "name": "도련님 (SR)", "query": "Trainer SR", "fallback_price": "35,000원"},
+            {"id": "ns-075", "name": "개굴닌자 ex (SR)", "query": "Greninja ex SR", "fallback_price": "22,000원"}
+        ]
+    },
+    "inferno_x": {
+        "name": "인페르노 X",
+        "cards": [
+            {"id": "inf-101", "name": "메가리자돈 X ex (MUR)", "query": "Mega Charizard X ex", "fallback_price": "310,000원"},
+            {"id": "inf-095", "name": "단델 (SAR)", "query": "Leon SAR", "fallback_price": "95,000원"},
+            {"id": "inf-088", "name": "리자드맨 (SR)", "query": "Charizard SR", "fallback_price": "42,000원"}
+        ]
+    },
+    "terastal_festa": {
+        "name": "테라스탈 페스타",
+        "cards": [
+            {"id": "tf-125", "name": "이스칸달 테라스탈 ex (SAR)", "query": "Terastal ex", "fallback_price": "150,000원"},
+            {"id": "tf-110", "name": "이브이 마스터볼 밀레니엄", "query": "Eevee Masterball", "fallback_price": "80,000원"},
+            {"id": "tf-098", "name": "님피아 ex (SAR)", "query": "Sylveon ex SAR", "fallback_price": "65,000원"}
+        ]
+    },
+    "pokemon_151": {
+        "name": "포켓몬 카드 151",
+        "cards": [
+            {"id": "151-205", "name": "뮤츠 ex (SAR)", "query": "Mewtwo ex SAR", "fallback_price": "160,000원"},
+            {"id": "151-199", "name": "리자몽 ex (SAR)", "query": "Charizard ex SAR", "fallback_price": "130,000원"},
+            {"id": "151-198", "name": "이상해꽃 ex (SAR)", "query": "Venusaur ex SAR", "fallback_price": "60,000원"},
+            {"id": "151-200", "name": "거북왕 ex (SAR)", "query": "Blastoise ex SAR", "fallback_price": "55,000원"},
+            {"id": "151-204", "name": "사나이 (SR)", "query": "Giovanni's Charisma SAR", "fallback_price": "25,000원"}
+        ]
+    }
+}
