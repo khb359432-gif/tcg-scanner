@@ -1,0 +1,3 @@
+Plaintext
+tesseract-ocr
+tesseract-ocr-eng
