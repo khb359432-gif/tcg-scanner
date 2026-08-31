@@ -16,7 +16,7 @@ html_content = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>포켓몬 TCG 카드 시세 & 이미지 조회</title>
+    <title>힛카드 검색기</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 10px; background: #f0f0f0; }
@@ -82,7 +82,7 @@ html_content = """
     </style>
 </head>
 <body>
-    <h1>포켓몬 TCG 시세 & 일러스트 스캐너</h1>
+    <h1>🔥 힛카드 검색기</h1>
     
     <div class="video-container">
         <video id="video" autoplay playsinline></video>
@@ -209,8 +209,8 @@ async def websocket_endpoint(websocket: WebSocket):
             set_info = database.get(set_key)
             card_info = set_info["cards"][card_idx]
             
-            market_price = None
-            image_url = "https://images.pokemontcg.io/base1/4.png" # 기본 대체 이미지
+            market_page = None
+            image_url = "https://images.pokemontcg.io/base1/4.png"
             
             async with httpx.AsyncClient() as client:
                 try:
@@ -221,16 +221,14 @@ async def websocket_endpoint(websocket: WebSocket):
                         api_data = response.json()
                         if api_data.get("data"):
                             card_data = api_data["data"][0]
-                            # 고화질 이미지 URL 추출
                             image_url = card_data.get("images", {}).get("large", image_url)
-                            
                             price = card_data.get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
                             if price:
                                 market_price = f"${price} (기준가: {card_info['fallback_price']})"
                 except Exception:
                     pass
             
-            if not market_price:
+            if 'market_price' not in locals() or not market_price:
                 market_price = card_info["fallback_price"]
                 
             result = {
