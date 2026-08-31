@@ -7,6 +7,9 @@ import pytesseract
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
+# Render 리눅스 서버의 Tesseract 설치 경로 명시
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+
 app = FastAPI()
 
 html_content = """
@@ -179,8 +182,6 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 encoded_data = data.split(',')[1]
                 nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
-                
-                # 오류 수정 부분: np.IMREAD_COLOR -> cv2.IMREAD_COLOR
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
                 detected_card = None
