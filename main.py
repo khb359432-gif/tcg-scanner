@@ -19,26 +19,21 @@ html_content = """
     <title>힛카드 검색기</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; text-align: center; margin: 0; padding: 10px; background: #f0f0f0; }
-        .video-container {
-            position: relative;
+        body { font-family: sans-serif; text-align: center; margin: 0; padding: 15px; background: #f0f0f0; }
+        
+        .card-box {
             width: 100%;
             max-width: 400px;
             margin: 0 auto;
-            border-radius: 10px;
-            overflow: hidden;
-            background: black;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-        video { width: 100%; display: block; }
-        
-        .controls {
-            width: 100%;
-            max-width: 400px;
-            margin: 15px auto 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             text-align: left;
+            box-sizing: border-box;
         }
-        label { font-weight: bold; font-size: 0.9rem; color: #333; display: block; margin-bottom: 5px; }
+
+        label { font-weight: bold; font-size: 0.95rem; color: #333; display: block; margin-bottom: 6px; }
         select {
             width: 100%;
             padding: 12px;
@@ -47,17 +42,30 @@ html_content = """
             border: 1px solid #ccc;
             background: white;
             margin-bottom: 15px;
+            box-sizing: border-box;
         }
 
-        #resultBox { margin-top: 15px; padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; text-align: center;}
-        h1 { font-size: 1.4rem; color: #333; }
-        .price { font-size: 1.2rem; font-weight: bold; color: #16a085; margin-top: 10px; }
-        .card-name { font-size: 1.2rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+        #resultBox { 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 400px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            text-align: center;
+            box-sizing: border-box;
+        }
         
-        /* 카드 이미지 스타일 */
+        h1 { font-size: 1.5rem; color: #333; margin-bottom: 20px; }
+        .price { font-size: 1.2rem; font-weight: bold; color: #16a085; margin-top: 10px; }
+        .card-name { font-size: 1.25rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+        
         .card-img {
             width: 100%;
-            max-width: 220px;
+            max-width: 230px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             margin: 10px auto;
@@ -77,6 +85,7 @@ html_content = """
             cursor: pointer;
             width: 100%;
             max-width: 400px;
+            box-sizing: border-box;
         }
         #checkBtn:active { background-color: #c0392b; transform: translateY(2px); }
     </style>
@@ -84,11 +93,7 @@ html_content = """
 <body>
     <h1>🔥 힛카드 검색기</h1>
     
-    <div class="video-container">
-        <video id="video" autoplay playsinline></video>
-    </div>
-    
-    <div class="controls">
+    <div class="card-box">
         <label for="setSelect">확장팩 선택:</label>
         <select id="setSelect" onchange="updateCardList()"></select>
 
@@ -96,6 +101,7 @@ html_content = """
         <select id="cardSelect"></select>
     </div>
 
+    <br>
     <button id="checkBtn">💰 시세 및 이미지 확인하기</button>
     
     <div id="resultBox">
@@ -104,7 +110,6 @@ html_content = """
     </div>
 
     <script>
-        const video = document.getElementById('video');
         const setSelect = document.getElementById('setSelect');
         const cardSelect = document.getElementById('cardSelect');
         const checkBtn = document.getElementById('checkBtn');
@@ -170,16 +175,12 @@ html_content = """
                     <div class="card-name">${data.name}</div>
                     <img src="${data.image_url}" class="card-img" alt="포켓몬 카드 이미지">
                     <p style="margin: 5px 0; color:#666; font-size:0.9rem;">세트: ${data.set_name} (${data.card_id})</p>
-                    <div class="price">시세 정보: ${data.market_price}</div>
+                    <div class="price">참고 시세: ${data.market_price}</div>
                 `;
             } else {
                 resultBox.innerHTML = `<h3 style="color:#e74c3c;">조회 실패</h3><p>이미지를 불러오지 못했습니다.</p>`;
             }
         };
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => { console.error("카메라 접근 오류:", err); });
     </script>
 </body>
 </html>
@@ -209,12 +210,13 @@ async def websocket_endpoint(websocket: WebSocket):
             set_info = database.get(set_key)
             card_info = set_info["cards"][card_idx]
             
-            market_page = None
+            market_price = card_info["fallback_price"]
             image_url = "https://images.pokemontcg.io/base1/4.png"
             
             async with httpx.AsyncClient() as client:
                 try:
-                    api_url = f"https://api.pokemontcg.io/v2/cards?q=name:\"{card_info['query']}\""
+                    # 정확한 포켓몬 이름 검색 (최신 확장팩 우선 정렬)
+                    api_url = f"https://api.pokemontcg.io/v2/cards?q=name:\"{card_info['query']}\"&orderBy=-set.releaseDate"
                     headers = {"User-Agent": "Mozilla/5.0"}
                     response = await client.get(api_url, headers=headers, timeout=3.0)
                     if response.status_code == 200:
@@ -224,12 +226,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             image_url = card_data.get("images", {}).get("large", image_url)
                             price = card_data.get("tcgplayer", {}).get("prices", {}).get("holofoil", {}).get("market")
                             if price:
-                                market_price = f"${price} (기준가: {card_info['fallback_price']})"
+                                market_price = f"${price} (국내 기준가: {card_info['fallback_price']})"
                 except Exception:
                     pass
-            
-            if 'market_price' not in locals() or not market_price:
-                market_price = card_info["fallback_price"]
                 
             result = {
                 "status": "success",
